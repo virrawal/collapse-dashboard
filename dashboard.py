@@ -1,9 +1,10 @@
-# dashboard.py
+# dashboard.pyd.py
 
 import streamlit as st
 import pandas as pd
-from polygon_data import get_polygon_data
+
 from yield_curve import get_yield_curve_spread
+from twelve_data import get_asset_data
 
 st.set_page_config(page_title="📉 Collapse Monitoring Dashboard", layout="wide")
 
@@ -17,17 +18,20 @@ st.header("📊 Macro Asset Performance: Bitcoin, Gold, S&P 500")
 
 @st.cache_data(ttl=300)  # Refreshes every 5 minutes
 def load_asset_data():
-    btc = get_polygon_data("X:BTCUSD").rename(columns={"close": "Bitcoin"})
-    gld = get_polygon_data("GLD").rename(columns={"close": "Gold (GLD)"})
-    spy = get_polygon_data("SPY").rename(columns={"close": "S&P 500 (SPY)"})
-
+       # Fetch historical data for Bitcoin, Gold, and S&P 500 from Twelve Data
+    btc = get_asset_data("BTC/USD").rename(columns={"BTC/USD": "Bitcoin"})
+    gld = get_asset_data("GLD").rename(columns={"GLD": "Gold (GLD)"})
+    spy = get_asset_data("SPY").rename(columns={"SPY": "S&P 500 (SPY)"})
     df = pd.concat([btc, gld, spy], axis=1).dropna()
-    return df.pct_change().cumsum() * 100
+    # Compute cumulative returns (percentage) from daily returns
+    returns = df.pct_change().fillna(0)
+    cumulative = (1 + returns).cumprod() - 1
+    return cumulative * 100
 
 try:
     df_assets = load_asset_data()
     st.line_chart(df_assets)
-    st.caption("Data source: Polygon.io | Auto-refreshes every 5 minutes")
+            st.caption("Data source: Twelve Data | Auto-refreshes every 5 minutes")
 except Exception as e:
     st.error(f"❌ Failed to load asset data: {e}")
 
